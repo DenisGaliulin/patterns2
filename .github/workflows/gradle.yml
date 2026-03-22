@@ -24,4 +24,4 @@ jobs:
           java -jar app-ibank.jar -P:profile=test &
 
       - name: Build with Gradle
-        run: ./gradlew test --info -Dselenide.headless=true
+        run: ./gradlew test --info
