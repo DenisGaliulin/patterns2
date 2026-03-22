@@ -1,12 +1,14 @@
 package ru.netology.javaqa;
 
-import io.restassured.builder.RequestSpecBuilder;
-import io.restassured.http.ContentType;
-import io.restassured.specification.RequestSpecification;
+import com.codeborne.selenide.Condition;
+import com.codeborne.selenide.Configuration;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static io.restassured.RestAssured.given;
+import static com.codeborne.selenide.Selenide.$;
+import static com.codeborne.selenide.Selenide.open;
 import static ru.netology.javaqa.DataGenerator.Registration.getRegisteredUser;
 import static ru.netology.javaqa.DataGenerator.Registration.getUser;
 import static ru.netology.javaqa.DataGenerator.getRandomLogin;
@@ -14,26 +16,28 @@ import static ru.netology.javaqa.DataGenerator.getRandomPassword;
 
 class AuthTest {
 
-    private static RequestSpecification requestSpec = new RequestSpecBuilder()
-            .setBaseUri("http://localhost")
-            .setPort(9999)
-            .setAccept(ContentType.JSON)
-            .setContentType(ContentType.JSON)
-            .log(io.restassured.filter.log.LogDetail.ALL)
-            .build();
+    @BeforeAll
+    static void setUpAll() {
+        Configuration.headless = true;
+        Configuration.browser = "chrome";
+        Configuration.browserSize = "1920x1080";
+    }
+
+    @BeforeEach
+    void setup() {
+        open("http://localhost:9999");
+    }
 
     @Test
     @DisplayName("Should successfully login with active registered user")
     void shouldSuccessfulLoginIfRegisteredActiveUser() {
         var registeredUser = getRegisteredUser("active");
 
-        given()
-                .spec(requestSpec)
-                .body(registeredUser)
-                .when()
-                .post("/api/system/users")
-                .then()
-                .statusCode(200);
+        $("[data-test-id='login'] input").setValue(registeredUser.getLogin());
+        $("[data-test-id='password'] input").setValue(registeredUser.getPassword());
+        $("[data-test-id='action-login']").click();
+
+        $(".heading").shouldHave(Condition.exactText("Личный кабинет"));
     }
 
     @Test
@@ -41,13 +45,12 @@ class AuthTest {
     void shouldGetErrorIfNotRegisteredUser() {
         var notRegisteredUser = getUser("active");
 
-        given()
-                .spec(requestSpec)
-                .body(notRegisteredUser)
-                .when()
-                .post("/api/system/users")
-                .then()
-                .statusCode(200);
+        $("[data-test-id='login'] input").setValue(notRegisteredUser.getLogin());
+        $("[data-test-id='password'] input").setValue(notRegisteredUser.getPassword());
+        $("[data-test-id='action-login']").click();
+
+        $("[data-test-id='error-notification'] .notification__content")
+                .shouldHave(Condition.exactText("Ошибка! Неверно указан логин или пароль"));
     }
 
     @Test
@@ -55,13 +58,12 @@ class AuthTest {
     void shouldGetErrorIfBlockedUser() {
         var blockedUser = getRegisteredUser("blocked");
 
-        given()
-                .spec(requestSpec)
-                .body(blockedUser)
-                .when()
-                .post("/api/system/users")
-                .then()
-                .statusCode(200);
+        $("[data-test-id='login'] input").setValue(blockedUser.getLogin());
+        $("[data-test-id='password'] input").setValue(blockedUser.getPassword());
+        $("[data-test-id='action-login']").click();
+
+        $("[data-test-id='error-notification'] .notification__content")
+                .shouldHave(Condition.exactText("Ошибка! Пользователь заблокирован"));
     }
 
     @Test
@@ -70,27 +72,12 @@ class AuthTest {
         var registeredUser = getRegisteredUser("active");
         var wrongLogin = getRandomLogin();
 
-        given()
-                .spec(requestSpec)
-                .body(registeredUser)
-                .when()
-                .post("/api/system/users")
-                .then()
-                .statusCode(200);
+        $("[data-test-id='login'] input").setValue(wrongLogin);
+        $("[data-test-id='password'] input").setValue(registeredUser.getPassword());
+        $("[data-test-id='action-login']").click();
 
-        var userWithWrongLogin = new DataGenerator.RegistrationDto(
-                wrongLogin,
-                registeredUser.getPassword(),
-                "active"
-        );
-
-        given()
-                .spec(requestSpec)
-                .body(userWithWrongLogin)
-                .when()
-                .post("/api/system/users")
-                .then()
-                .statusCode(200);
+        $("[data-test-id='error-notification'] .notification__content")
+                .shouldHave(Condition.exactText("Ошибка! Неверно указан логин или пароль"));
     }
 
     @Test
@@ -99,26 +86,11 @@ class AuthTest {
         var registeredUser = getRegisteredUser("active");
         var wrongPassword = getRandomPassword();
 
-        given()
-                .spec(requestSpec)
-                .body(registeredUser)
-                .when()
-                .post("/api/system/users")
-                .then()
-                .statusCode(200);
+        $("[data-test-id='login'] input").setValue(registeredUser.getLogin());
+        $("[data-test-id='password'] input").setValue(wrongPassword);
+        $("[data-test-id='action-login']").click();
 
-        var userWithWrongPassword = new DataGenerator.RegistrationDto(
-                registeredUser.getLogin(),
-                wrongPassword,
-                "active"
-        );
-
-        given()
-                .spec(requestSpec)
-                .body(userWithWrongPassword)
-                .when()
-                .post("/api/system/users")
-                .then()
-                .statusCode(200);
+        $("[data-test-id='error-notification'] .notification__content")
+                .shouldHave(Condition.exactText("Ошибка! Неверно указан логин или пароль"));
     }
 }
